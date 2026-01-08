@@ -40,6 +40,13 @@ class MemoryManager:
             self.metadata = {}
 
 
+        if self.metadata:
+            # Sort keys so they match the FAISS index order (0, 1, 2...)
+            sorted_keys = sorted(self.metadata.keys(), key=int)
+            self.store.memories = [self.metadata[k]['text'] for k in sorted_keys]
+            print(f"--- [SYSTEM] Synced {len(self.store.memories)} memories to VectorStore ---")
+
+
 
     def save_metadata(self):
         os.makedirs(os.path.dirname(self.metadata_path),exist_ok=True)
@@ -57,7 +64,7 @@ class MemoryManager:
         """
 
         embeddings = self.embedder.embed_text(memory.text)
-        faiss_ids = self.store.add([embeddings])
+        faiss_ids = self.store.add([embeddings],[memory.text])
         faiss_id = faiss_ids[0]
 
         # Link FAISS ID -> Memory
@@ -66,45 +73,23 @@ class MemoryManager:
         return memory.id
 
 
-    def retrieve_memories(self,query : str , top_k : int = 5) -> List[Memory]:
-        """
-        Retrieve relevant memories for a query
-        """
+    def retrieve_memories(self, query: str, top_k: int = 3):
 
-        embedding = self.embedder.embed_text(query)
+      embedding = self.embedder.embed_text(query)
+      ids, scores = self.store.search(embedding, top_k=top_k)
 
-        ids,scores = self.store.search(embedding,top_k=top_k)
+      if len(ids) > 0 and isinstance(ids[0],list):
+          ids = ids[0]
 
-        results = []
+      retrieved_texts = []
 
-        if isinstance(ids, np.ndarray) and ids.ndim > 1:
-            ids_to_process = ids[0]
-        elif isinstance(ids, list) and len(ids) > 0 and isinstance(ids[0], list):
-            ids_to_process = ids[0]
-        else:
-            ids_to_process = ids
+      for idx in ids:
+        if idx != -1 and idx < len(self.store.memories):
+            retrieved_texts.append(self.store.memories[idx])
 
-        for idx in ids_to_process:
-            # Important: FAISS often returns -1 if no match is found
-            if idx == -1:
-                continue
+      print(f"--- [DEBUG] Retrieved {len(retrieved_texts)} memories ---")
 
-
-
-            mem_dict = self.metadata.get(str(int(idx)))
-
-            if mem_dict:
-                mem = Memory(
-                    id = mem_dict['id'],
-                    text = mem_dict['text'],
-                    memory_type = mem_dict['memory_type'],
-                    importance = mem_dict['importance'],
-                    timestamp = mem_dict['timestamp'],
-                    metadata = mem_dict['metadata']
-                )
-                results.append(mem)
-
-        return results
+      return retrieved_texts
 
 
     def add_interactions(self,text:str):

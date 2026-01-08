@@ -2,7 +2,7 @@ import faiss
 import os
 import numpy as np
 from typing import List,Dict,Tuple
-
+import json
 
 class VectorStore:
     """
@@ -12,6 +12,8 @@ class VectorStore:
     def __init__(self,dim : int, index_path : str = "data/memory_store/faiss.index"):
         self.dim = dim
         self.index_path = index_path
+
+        self.memories = []
 
         os.makedirs(os.path.dirname(index_path),exist_ok=True)
 
@@ -26,7 +28,7 @@ class VectorStore:
             print("No existing memory found. Initializing new FAISS index...")
             # This creates the empty 'container' in RAM
             self.index = faiss.IndexFlatL2(dim)
-            
+
 
     def _normalize(self,vectors:np.ndarray) -> np.ndarray:
         """
@@ -36,7 +38,7 @@ class VectorStore:
         return vectors / np.linalg.norm(vectors,axis=1,keepdims=True)
 
 
-    def add(self,embeddings : List[List[float]]) -> List[int]:
+    def add(self,embeddings : List[List[float]], text_list : List[str]) -> List[int]:
         """
         Add embeddings to the index.
         Returns FAISS internal ids.
@@ -47,6 +49,8 @@ class VectorStore:
 
         start_id = self.index.ntotal
         self.index.add(vectors)
+
+        self.memories.extend(text_list)
         self.save()
 
         return list(range(start_id,start_id + len(vectors)))
@@ -65,11 +69,14 @@ class VectorStore:
 
         return ids[0].tolist(),scores[0].tolist()
 
+
     def save(self):
-        """
-        Persist Faiss index to disk
-        """
-        faiss.write_index(self.index,self.index_path)
+        faiss.write_index(self.index, self.index_path)
+        # We also need to save the text list so it survives a restart
+        meta_path = self.index_path.replace(".index", ".json")
+
+        with open(meta_path, "w") as f:
+            json.dump(self.memories, f)
 
 
 

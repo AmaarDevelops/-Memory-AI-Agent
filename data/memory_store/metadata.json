@@ -1,0 +1,13 @@
+{
+    "0": {
+        "id": "a6422876-2e56-41dd-b7d0-f169701bc936",
+        "text": "User's name is Amaar and their glasses code is 1234.",
+        "memory_type": "episodic_memory",
+        "importance": 0.7,
+        "timestamp": "2026-01-08T17:17:03.277456",
+        "metadata": {
+            "start_time": "2026-01-08T17:16:39.206344",
+            "end_time": "2026-01-08T17:17:00.917282"
+        }
+    }
+}
